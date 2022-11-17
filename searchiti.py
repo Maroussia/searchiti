@@ -31,13 +31,11 @@ def get_grepy(search:str, in_path:str, out_path:str, format='html'):
     in html (by default) or csv if specified (format='csv').
     """
     rgpy = grepy(search, in_path)
-    res = {}
-    idx = 1
-    for i, e in enumerate(rgpy):
-        res[idx] = {'path': e['data']['path']['text'].split('/')[-1],# selects only the file_name
-                    'lines':f"{e['data']['line_number']}",
-                    'text':f"{e['data']['lines']['text']}"}
-        idx +=1
+    res = {} # empty dictionray to store the matches
+    for index, match in enumerate(rgpy):
+        res[index+1] = {'paths': match['data']['path']['text'].split('/')[-1],# selects only the file_name
+                    'lines':f"{match['data']['line_number']}",
+                    'texts':f"{match['data']['lines']['text']}"}
     
     df_res = pd.DataFrame.from_dict(res, orient='index', columns=['path', 'lines', 'text'])
     
@@ -92,32 +90,28 @@ def rg_to_df(search:str, path:str, cxt=0):
     {stats['matches']} matches
     {stats['searches_with_match']} files contained matches""")
 
-    if cxt>0:
-        res = {}
-        idx = 1
-        for i, e in enumerate(json_lines):
-            if e['type'] == 'match': # excludes begin, end and summary
+    res = {} # empty dictionary to store the matches
+
+    if cxt>0: # with context, the results contains the match and the cxt number of lines around the match
+        for index, line in enumerate(json_lines):
+            if line['type'] == 'match': # excludes begin, end and summary
+                # attributes to each index a dictionary that contains
+                # the path, line_number and text for each search match
+                # and merges the context lines with the match line.
+                res[index] = {'paths': line['data']['path']['text'].split('/')[-1],
+                            'lines':f"{json_lines[index-1]['data']['line_number']}-{json_lines[i+1]['data']['line_number']}",
+                            'texts':f"{json_lines[index-1]['data']['lines']['text']} {line['data']['lines']['text']} {json_lines[index+1]['data']['lines']['text']}"}
+
+    else: # without context, the result contains only the match line
+        for index, line in enumerate(json_lines):
+            if line['type'] == 'match': # excludes begin, end and summary
                 # creates a dict of dict that contains the path,
                 # line_number and text for each search match and
-                # merge the context lines with the match line.
-                res[idx] = {'path': e['data']['path']['text'].split('/')[-1],
-                            'lines':f"{json_lines[i-1]['data']['line_number']}-{json_lines[i+1]['data']['line_number']}",
-                            'text':f"{json_lines[i-1]['data']['lines']['text']} {e['data']['lines']['text']} {json_lines[i+1]['data']['lines']['text']}"}
-                idx +=1
+                res[index] = {'paths': line['data']['path']['text'].split('/')[-1],
+                            'lines':f"{line['data']['line_number']}",
+                            'texts':f"{line['data']['lines']['text']}"}
 
-    else:
-        res = {}
-        idx = 1
-        for i, e in enumerate(json_lines):
-            if e['type'] == 'match': # excludes begin, end and summary
-                # creates a dict of dict that contains the path,
-                # line_number and text for each search match and
-                res[idx] = {'path': e['data']['path']['text'].split('/')[-1],
-                            'lines':f"{e['data']['line_number']}",
-                            'text':f"{e['data']['lines']['text']}"}
-                idx +=1
-
-    return pd.DataFrame.from_dict(res, orient='index', columns=['path', 'lines', 'text'])
+    return pd.DataFrame.from_dict(res, orient='index', columns=['paths', 'lines', 'texts'])
 
 def rg_to_csv(out_path:str, search:str, in_path:str, cxt=0):
     """Returns a csv file with all the matches to `search` within in_path.
